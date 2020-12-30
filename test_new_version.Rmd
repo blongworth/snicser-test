@@ -1,0 +1,94 @@
+---
+title: "SNICSer Test"
+output: html_notebook
+---
+
+Bits of code to test new versions of snicser against previous results
+
+Load Libraries
+
+```{r}
+packages <- c("tidyverse", "amstools", "odbc")
+lapply(packages, library, character.only = TRUE)
+
+#con <- conNOSAMS()
+```
+
+
+Read orginal data. SNICSer version 2.95.
+
+```{r}
+# origdf <- getWheel("USAMS030520", TRUE)
+# View(origdf)
+# write_csv(origdf, "USAMS030520_orig.csv")
+origdf <- read_csv("USAMS030520_orig.csv")
+```
+
+Read test data. Need to wipe old wheel and perform new analyst for 1st and second.
+
+This will clear USAMS030520 from snics_raw_test and snics_results test
+
+```{r}
+# query <- dbSendQuery(con, "DELETE FROM snics_raw_test WHERE wheel = 'USAMS030520'")
+# dbClearResult(query)
+# query <- dbSendQuery(con, "DELETE FROM snics_results_test WHERE wheel = 'USAMS030520'")
+# query
+# dbClearResult(query)
+```
+
+Set 1st analyst to allow me to be second
+
+```{r}
+# query <- dbSendQuery(con, "UPDATE snics_raw_test SET analyst = 'brettl' WHERE wheel = 'USAMS030520'")
+# dbClearResult(query)
+# query <- dbSendQuery(con, "UPDATE snics_raw_test SET analyst = 'test' WHERE wheel = 'USAMS030520'")
+# dbClearResult(query)
+# query <- dbSendQuery(con, "UPDATE snics_results_test SET analyst1 = 'test' WHERE wheel = 'USAMS030520'")
+# dbClearResult(query)
+```
+
+```{r}
+# testdf <- getWheel("USAMS030520", TRUE)
+# View(testdf)
+# write_csv(testdf, "USAMS030520_test.csv")
+testdf <- read_csv("USAMS030520_test.csv")
+```
+
+Are the blank corrected Fm's the same?
+
+```{r}
+origdf$test <- "orig"
+testdf$test <- "test"
+df <- rbind(origdf, testdf)
+
+# names(df)
+```
+
+# Check that 1st and 2nd are the same
+
+```{r}
+df %>% 
+  select(wheel_pos, fm_mb_corr, fm_mb_corr_2) %>% 
+  mutate(same = near(fm_mb_corr, fm_mb_corr_2)) %>% 
+  filter(same = FALSE)
+```
+
+# Check that old and new are the same for 1st
+
+```{r}
+df %>% 
+  select(wheel_pos, test, fm_mb_corr) %>% 
+pivot_wider(names_from = test, values_from = fm_mb_corr ) %>% 
+  mutate(same = near(orig, test)) %>% 
+  filter(same = FALSE)
+```
+
+# Check that old and new are the same for 2nd
+
+```{r}
+df %>% 
+  select(wheel_pos, test, fm_mb_corr_2) %>% 
+pivot_wider(names_from = test, values_from = fm_mb_corr_2 ) %>% 
+  mutate(same = near(orig, test)) %>% 
+  filter(same = FALSE)
+```
