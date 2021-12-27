@@ -5,6 +5,10 @@ output:
     df_print: paged
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
 Checking SNICSer ratio to std results against MR's results from Fudger. Using CFAMS070821 and CFAMS103021.
 
 ```{r}
@@ -12,7 +16,7 @@ library(tidyverse)
 library(readxl)
 ```
 
-Read data
+Read data for CFAMS070821 and CFAMS103021, combine with SNICSer data. SNICSer data is wheel normalized by setting external standard 14/12 to 1 and 13/12 to 0.9822?? with same number of standards, by time, using self normalization.
 
 ```{r}
 fudger0708 <- read_xlsx("data/CFAMS070821 Norm Results.xlsx", skip = 5) %>% 
@@ -23,9 +27,6 @@ fudger1030 <- read_xlsx("data/CFAMS1030821 Norm Results.xlsx", skip = 5) %>%
   mutate(wheel = "CFAMS103021")
 
 fudger <- bind_rows(fudger0708, fudger1030)
-# fudger <- map_dfr(list.files(path = "data", 
-#                               pattern = "Results.xlsx",
-#                               full.names = TRUE), read_xlsx, .id = "wheel", skip = 5)
 
 snicser_files <- list.files(path = "data", 
                               pattern = "TargetTable.xls",
@@ -38,43 +39,67 @@ snicser <- snicser_files %>%
 
 combined <- snicser %>% 
   select(wheel, Pos, SampleName, Typ, N, DelC13, NormRat) %>% 
-  left_join(select(fudger, wheel, Pos., fRpts = Rpts, fdel13C = `del13C to STD`, fnormrat = `Ratio to STD`), by = c("wheel" = "wheel", "Pos" = "Pos.")) %>% 
+  left_join(select(fudger, wheel, Pos., fRpts = Rpts, 
+                   fdel13C = `del13C to STD`, fnormrat = `Ratio to STD`), 
+            by = c("wheel" = "wheel", "Pos" = "Pos.")) %>% 
   filter(!is.na(fnormrat)) %>% 
-  mutate(diff = fnormrat - NormRat)
+  mutate(avg_fm = (NormRat + fnormrat) / 2,
+         diff = fnormrat - NormRat)
 ```
 
-There are some oddnesses in the differences. The slope of low ratio stuff is interesting. Is there a blank correction happening somewhere?
+### Plots
 
-```{r}
-ggplot(combined, aes(NormRat, diff, color = DelC13)) +
-  geom_point()
-```
+Plot differences in ratio to standard (fudger - SNICSer). 
 
-Same for 10/30 wheel. Snicser run with 14/12 set to 1, 13/12 set to .9822. Bracket average, allow self-norm.
-
- 
- Looking at the sample with the largest difference. Was this defined to be zero and used as a blank?
- 
 ```{r}
 combined %>% 
-  arrange(diff) %>% 
+ggplot(aes(avg_fm, diff, color = DelC13)) +
+  geom_point() +
+  labs(title = "Ratio differences between fudger and snicser",
+       x = "average ratio",
+       y = "fudger - snicser")
+```
+
+There are some oddnesses in the differences. The slope of low ratio stuff is interesting; fudger results increasingly higher as ratio increases.
+ 
+#### Largest differences
+
+```{r}
+combined %>% 
+  select(SampleName, wheel, Pos, Typ, DelC13, SNICSer = NormRat, Fudger = fnormrat, diff) %>% 
+  arrange(desc(abs(diff))) %>% 
   head()
 ```
 
-Distribution of differences in standards seems to be random.
+Distribution of differences in standards is strongly related to D13C.
 
 ```{r}
 combined %>% 
   filter(Typ == "S") %>% 
-  ggplot(aes(NormRat, diff)) +
-    geom_point()
+  ggplot(aes(diff, DelC13)) +
+    geom_smooth(method = "lm", se = FALSE) +
+    geom_point(aes(color = wheel))
   
 ```
 
 ```{r}
-ggplot(combined, aes(DelC13, fdel13C - DelC13, color = wheel)) +
-  geom_point()
+combined %>% 
+  filter(Typ == "S") %>% 
+  ggplot(aes(DelC13, NormRat, color = wheel)) +
+    geom_smooth(method = "lm", se = FALSE) +
+    geom_point()
 ```
+
+```{r}
+combined %>% 
+  filter(Typ == "S") %>% 
+  ggplot(aes(fdel13C, fnormrat, color = wheel)) +
+    geom_smooth(method = "lm", se = FALSE) +
+    geom_point()
+```
+
+It looks like fudger results for CFAMS103021 use a different value for 13/12 of standard.
+
 ```{r}
 combined %>% 
   select(wheel, Pos, NormRat, snicser = DelC13, fudger = fdel13C) %>% 
@@ -82,10 +107,4 @@ combined %>%
   ggplot(aes(Pos, d13C, color = analysis)) +
   geom_point() +
   facet_wrap(~wheel)
-```
-
-
-```{r}
-ggplot(combined, aes(DelC13, diff, color = fdel13C)) +
-  geom_point()
 ```
