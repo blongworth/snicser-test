@@ -16,7 +16,7 @@ library(tidyverse)
 library(readxl)
 ```
 
-Read data for CFAMS070821 and CFAMS103021, combine with SNICSer data. SNICSer data is wheel normalized by setting external standard 14/12 to 1 and 13/12 to 0.9822?? with same number of standards, by time, using self normalization.
+Read data for CFAMS070821 and CFAMS103021, combine with SNICSer data. SNICSer data is wheel normalized by setting external standard 14/12 to 1 and 13/12 to 0.9822. with same number of standards, by time, using self normalization.
 
 ```{r}
 fudger0708 <- read_xlsx("data/CFAMS070821 Norm Results.xlsx", skip = 5) %>% 
@@ -47,13 +47,14 @@ combined <- snicser %>%
          diff = fnormrat - NormRat)
 ```
 
-### Plots
+### Difference between fudger and snicser
 
 Plot differences in ratio to standard (fudger - SNICSer). 
 
 ```{r}
 combined %>% 
-ggplot(aes(avg_fm, diff, color = DelC13)) +
+ggplot(aes(avg_fm, diff, color = Typ)) +
+  geom_hline(yintercept = 0) +
   geom_point() +
   labs(title = "Ratio differences between fudger and snicser",
        x = "average ratio",
@@ -71,32 +72,7 @@ combined %>%
   head()
 ```
 
-Distribution of differences in standards is strongly related to D13C.
-
-```{r}
-combined %>% 
-  filter(Typ == "S") %>% 
-  ggplot(aes(diff, DelC13)) +
-    geom_smooth(method = "lm", se = FALSE) +
-    geom_point(aes(color = wheel))
-  
-```
-
-```{r}
-combined %>% 
-  filter(Typ == "S") %>% 
-  ggplot(aes(DelC13, NormRat, color = wheel)) +
-    geom_smooth(method = "lm", se = FALSE) +
-    geom_point()
-```
-
-```{r}
-combined %>% 
-  filter(Typ == "S") %>% 
-  ggplot(aes(fdel13C, fnormrat, color = wheel)) +
-    geom_smooth(method = "lm", se = FALSE) +
-    geom_point()
-```
+### d13C
 
 It looks like fudger results for CFAMS103021 use a different value for 13/12 of standard.
 
@@ -108,3 +84,36 @@ combined %>%
   geom_point() +
   facet_wrap(~wheel)
 ```
+
+
+Distribution of differences in standards is strongly related to D13C.
+
+```{r}
+combined %>% 
+  filter(Typ == "S") %>% 
+  ggplot(aes(DelC13, diff)) +
+    geom_smooth(method = "lm", se = FALSE) +
+    geom_point(aes(color = wheel))
+```
+
+No strong relationship between D13C and ratio to standard for SNICSer results
+
+```{r}
+combined %>% 
+  filter(Typ == "S") %>% 
+  ggplot(aes(NormRat, DelC13, color = wheel)) +
+    geom_smooth(method = "lm", se = FALSE) +
+    geom_point()
+```
+
+Unclear whether there's a strong relationship in fudger results.
+
+```{r}
+combined %>% 
+  filter(Typ == "S") %>% 
+  ggplot(aes(fnormrat, fdel13C)) +
+    geom_smooth(method = "lm", se = FALSE) +
+    geom_point() +
+    facet_wrap(~wheel, scales= "free")
+```
+
