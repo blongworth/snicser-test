@@ -12,6 +12,7 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 Checking SNICSer ratio to std results against MR's results from Fudger. Using CFAMS070821 and CFAMS103021.
 
 ```{r}
+library(amstools)
 library(tidyverse)
 library(readxl)
 ```
@@ -117,3 +118,42 @@ combined %>%
     facet_wrap(~wheel, scales= "free")
 ```
 
+# Fm correction
+
+Do we get the ratio to standard if we multiply the sample Fm by the Fm of the standard
+
+Read the results for these wheels from snics_results
+
+```{r}
+srd <- getWheel(c("CFAMS070821", "CFAMS103021"))
+
+combined_sr <- combined %>% 
+    left_join(select(srd, wheel, Pos = wheel_pos, norm_ratio), by = c("wheel", "Pos")) %>% 
+  mutate(abs_norm_ratio = norm_ratio / 1.3407)
+```
+
+SNICSer post-corrected vs SNICSer ratio to std.
+
+```{r}
+combined_sr %>%
+  mutate(diff = NormRat - abs_norm_ratio) %>% 
+ggplot(aes(avg_fm, diff, color = Typ)) +
+  geom_hline(yintercept = 0) +
+  geom_point() +
+  labs(title = "Ratio differences: SNICSer vs SNICSer",
+       x = "average ratio",
+       y = "snicser RtS - snicser / 1.3407")
+```
+
+SNICSer post-corrected vs Fudger
+
+```{r}
+combined_sr %>%
+  mutate(diff = fnormrat - abs_norm_ratio) %>% 
+ggplot(aes(avg_fm, diff, color = Typ)) +
+  geom_hline(yintercept = 0) +
+  geom_point() +
+  labs(title = "Ratio differences: Fudger vs SNICSer",
+       x = "average ratio",
+       y = "Fudger RtS - snicser / 1.3407")
+```
