@@ -1,0 +1,67 @@
+---
+title: "Test WS LBC correction in SNICSER"
+output: html_notebook
+---
+
+Bits of code to test new versions of snicser against previous results.
+
+Save analysis for comparison from SNICSer using Save to File from blank correction screen of test version. Compare to analysis in snics_results in DB.
+
+Load Libraries
+
+```{r}
+library(amstools)
+library(tidyverse)
+```
+
+
+Read Production data. 
+
+```{r}
+con <- conNOSAMS()
+origdf <- getWheel("CFAMS050622")
+#write_csv(origdf, "CFAMS050622_prod.csv")
+#origdf <- read_csv("CFAMS050622_prod.csv")
+```
+
+Read test data from file
+
+
+```{r}
+testlist <- read_fudger("H:/bel/CFAMS050622MBC_WS-LBC.xls")
+testdf <- bind_rows(testlist[3:4])
+  
+```
+
+Are the blank corrected Fm's the same?
+
+```{r}
+origs <- origdf |> 
+  mutate(test = "orig",
+         sig_norm_ratio = pmax(int_err, ext_err)) |> 
+  select(wheel_pos, sample_name, 
+         norm_ratio, sig_norm_ratio, fm_corr, sig_fm_corr,
+         test)
+
+tests <- testdf |> 
+  mutate(test = "test") |> 
+  select(wheel_pos = Pos, sample_name = SampleName____________,
+         norm_ratio = Fm_Meas, sig_norm_ratio = Max_Err,
+         fm_corr = Fm_Corr, sig_fm_corr = Sig_Fm_Corr,
+         test)
+df <- rbind(origs, tests)
+
+# names(df)
+```
+
+
+# Check that old and new are the same for 1st
+
+```{r}
+df %>% 
+  select(wheel_pos, sample_name, test, fm_corr) %>% 
+pivot_wider(names_from = test, values_from = fm_corr ) %>% 
+  mutate(same = near(orig, test)) |> 
+  arrange(orig - test)
+```
+
